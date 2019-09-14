@@ -1,0 +1,2 @@
+pyinstaller --clean --add-data="C:\Users\Joshua\AppData\Local\Programs\Python\Python37-32\Lib\site-packages\PyQt5\Qt\bin\Qt5Core.dll;PyQt5\Qt\bin" --onefile --icon=elephant_huM_icon.ico --window MMGui.py
+pyinstaller --clean --onefile --icon=elephant_huM_icon.ico hkmain.py
