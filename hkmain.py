@@ -66,22 +66,17 @@ class HKThread():
 
 	def auto_edit_key(self, pressed):
 		if pressed:
-			#print(self.edit_open)
 			if not self.edit_open:
 				self.open_edit()
-				#print("FUCK")
 				self.edit_open = True
 				self.edit_selected = False
-				#print("FUCKED")
 			else:
 				self.edit_open = False
 				self.close_edit()
 
 	def on_press(self, key):
-		#print(key)
 		if self.edit_open:
 			if key in self.can_cancel:
-				#print("CANCELLED")
 				self.edit_open = False
 				self.edit_reset = False
 		if key in self.handlers:
@@ -92,9 +87,6 @@ class HKThread():
 			self.handlers[key](False)
 
 	def on_click_auto(self, x, y, button, pressed):
-		#print(button)
-		#print(pressed)
-		#print(self.edit_open)
 		if self.edit_open:
 			if button == Button.left:
 				if not pressed:
@@ -117,9 +109,6 @@ class HKThread():
 			self.handlers[button](pressed)
 
 	def on_click(self, x, y, button, pressed):
-		#print(button)
-		#print("on_click")
-		#print(self.edit_open)
 		if self.edit_open: # does nothing if edit mode = disabled
 			if pressed and button in self.can_cancel:
 				print("Cancelled")
@@ -154,7 +143,6 @@ class HKThread():
 					self.can_cancel.append(KeyCode.from_char(key_info[0]))
 				else:
 					self.can_cancel.append(key_info[0])
-		#print(self.can_cancel)
 
 		if input_params["instant_build"]:
 			self.handlers[self.params.wall_bind.value[0]] = lambda p: self.instant_build(self.params.wall_alias.value, p)
@@ -180,8 +168,6 @@ class HKThread():
 
 		self.open_edit = lambda: self.tap_bind(self.params.edit_alias.value)
 		def switch_pick_open():
-			#print("OPENIN")
-			#print(self.edit_open)
 			self.tap_bind(self.params.pick_bind.value)
 			self.tap_bind(self.params.edit_alias.value)
 
@@ -193,9 +179,9 @@ class HKThread():
 			self.mouselistener = mouse.Listener(on_click = self.on_click_auto)
 		else:
 			self.mouselistener = mouse.Listener(on_click=self.on_click)
-		#self.mouselistener.start()
-		with self.mouselistener as listener:
-			listener.join()
+		self.mouselistener.start()
+		#with self.mouselistener as listener:
+			#listener.join()
 
 if __name__ == "__main__":
 	import json, sys
@@ -207,13 +193,9 @@ if __name__ == "__main__":
 		config = json.load(cfg)
 	hk = HKThread()
 	hk.run(config)
-	while 1:
-		pass
 	ret = sys.stdin.read(1)
 	if ret == "q":
 		hk.quit()
-		#sys.exit(0)
-	#sys.exit(1)
 
 
 	
