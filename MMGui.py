@@ -3,6 +3,7 @@
 import PyQt5
 from PyQt5 import sip
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QModelIndex, Qt
 from FNBinds import Binds
 import json, time
 
@@ -10,42 +11,47 @@ config_path = "config.json"
 
 class BindModel(QtCore.QAbstractListModel):
     def __init__(self, parent=None):
-        super(BindModel, self).__init__(parent)
+        QtCore.QAbstractListModel.__init__(self, parent)
         self.__data = []
 
-    def data(self, index, role=QtDisplayRole):
+    def data(self, index, role=Qt.DisplayRole):
         if not index.isValid():
             return None
 
-        if index.row() > len(self.__data):
+        if index.row() >= len(self.__data):
             return None
 
-        if role == QtCore.DisplayRole or role == QtCore.EditRole:
-            return self.__data[index.row()][3]
-        else:
+        if role == Qt.DisplayRole or role == Qt.EditRole:
+            return self.__data[index.row()].value[3]
+        elif role == Qt.UserRole:
             return self.__data[index.row()]
+        else:
+            QtCore.QVariant()
+            
+
+    def getData(self):
+        return self.__data
+
+    def addItem(self, item):
+        #self.beginResetModel()
+        self.beginInsertRows(QModelIndex(), 0, 0)
+        self.__data.append(item)
+        self.endInsertRows()
+        self.dataChanged.emit(self.index(len(self.__data)-1), self.index(len(self.__data)), [])
+        #self.endResetModel()
+        return self.index(0)
+
+    def removeItem(self, index):
+        if not index.isValid() or index.row() >= len(self.__data):
+            return False
+
+        self.beginRemoveRows(QModelIndex(), index.row(), index.row())
+        del self.__data[index.row()]
+        self.endRemoveRows()
+        #self.dataChanged.emit(self.index())
 
     def rowCount(self, parent=QModelIndex()):
         return len(self.__data)
-
-    def insertRows(self, row, count, parent=QModelIndex()):
-        self.beginInsertRows(QModelIndex(), row, row + count - 1)
-        self.__data.append([[] for i in range(count)])
-        self.endInsertRows()
-        return True
-
-    def removeRow(self, row, count, parent=QModelIndex()):
-        self.beginRemoveRows(QModelIndex(), row, row + count - 1)
-        del self.__data[row:row + count]
-        self.endRemoveRows()
-        return True
-
-    def setData(self, index, value, role=Qt.EditRole):
-        if not index.isValid() or role != Qt.EditRole:
-            return False
-        self.__data[index.row()] = value
-        self.dataChanged.emit(index, index)
-        return True
 
 
 class Ui_MainWindow(object):
@@ -53,76 +59,94 @@ class Ui_MainWindow(object):
     child = None
     availBinds = None
     inUseBinds = None
-    fields = {x: None for x in ["edit_mode", "instant_build", "single_reset", "edit_alias", "edit_alias_2", "edit_alias_3", "switch_pick", "toggle_pick", "toggle_pick_bind", "pick_bind", "edit_bind", "wall_bind", "wall_alias", "floor_bind", "floor_alias", "roof_bind", "roof_alias", "stair_bind", "stair_alias", "place_build_alias", "reset_bind", "can_cancel"]}
-
+    allBindsText = [name for name, member in Binds.__members__.items()]
+    params = {}
+    
     def on_load(self):
         parsed = {}
         with open(config_path, 'r') as infile:
             parsed = json.load(infile)
-        if parsed["edit_mode"] == "hold":
-            self.radioButton.setChecked(True)
-        elif parsed["edit_mode"] == "auto":
-            self.radioButton_2.setChecked(True)
+        if parsed["edit_mode"] == "disabled":
+            self.disableRadio.click()
+        elif parsed["edit_mode"] == "hold":
+            self.holdRadio.click()
         else:
-            self.radioButton_3.setChecked(True)
-        self.fields["single_reset"].setChecked(parsed["single_reset"])
-        self.fields["edit_alias"].setCurrentText(parsed["edit_alias"])
-        self.fields["edit_alias_2"].setCurrentText(parsed["edit_alias_2"])
-        self.fields["edit_alias_3"].setCurrentText(parsed["edit_alias_3"])
-        self.fields["instant_build"].setChecked(parsed["instant_build"])
-        self.fields["switch_pick"].setChecked(parsed["switch_pick"])
-        self.fields["toggle_pick"].setChecked(parsed["toggle_pick"])
-        self.fields["toggle_pick_bind"].setCurrentText(parsed["toggle_pick_bind"])
-        self.fields["pick_bind"].setCurrentText(parsed["pick_bind"])
-        self.fields["edit_bind"].setCurrentText(parsed["edit_bind"])
-        self.fields["wall_bind"].setCurrentText(parsed["wall_bind"])
-        self.fields["wall_alias"].setCurrentText(parsed["wall_alias"])
-        self.fields["floor_bind"].setCurrentText(parsed["floor_bind"])
-        self.fields["floor_alias"].setCurrentText(parsed["floor_alias"])
-        self.fields["roof_bind"].setCurrentText(parsed["roof_bind"])
-        self.fields["roof_alias"].setCurrentText(parsed["roof_alias"])
-        self.fields["stair_bind"].setCurrentText(parsed["stair_bind"])
-        self.fields["stair_alias"].setCurrentText(parsed["stair_alias"])
-        self.fields["place_build_alias"].setCurrentText(parsed["place_build_alias"])
-        self.fields["reset_bind"].setCurrentText(parsed["reset_bind"])
-        self.fields["can_cancel"].setPlainText(", ".join(parsed["can_cancel"]))
+            self.autoRadio.click()
+        self.switchPickCheck.setChecked(parsed["switch_pick"])
+        self.togglePickCheck.setChecked(parsed["toggle_pick"])
+        self.instantBuildCheck.setChecked(parsed["instant_build"])
+        self.singleResetCheck.setChecked(parsed["single_reset"])
+        self.autoSelectCheck.setChecked(parsed["auto_select_edit"])
+
+        #find and insert helper
+        def faihelper(combobox, data):
+            idx = combobox.findData(data)
+            if idx < 0:
+                if not self.availBinds.addItem(data):
+                    return False
+                idx = 0
+            combobox.setCurrentIndex(idx)
+        
+        faihelper(self.togglePickAliasCombo, Binds[parsed["toggle_pick_bind"]])
+        faihelper(self.pickAliasCombo, Binds[parsed["pick_bind"]])
+        faihelper(self.editAlias1Combo, Binds[parsed["edit_alias"]])
+        faihelper(self.editAlias2Combo, Binds[parsed["edit_alias_2"]])
+        faihelper(self.resetAliasCombo, Binds[parsed["edit_alias_3"]])
+        faihelper(self.editTriggerCombo, Binds[parsed["edit_bind"]])
+        faihelper(self.wallTriggerCombo, Binds[parsed["wall_bind"]])
+        faihelper(self.wallAliasCombo, Binds[parsed["wall_alias"]])
+        faihelper(self.floorTriggerCombo, Binds[parsed["floor_bind"]])
+        faihelper(self.floorAliasCombo, Binds[parsed["floor_alias"]])
+        faihelper(self.stairTriggerCombo, Binds[parsed["stair_bind"]])
+        faihelper(self.stairAliasCombo, Binds[parsed["stair_alias"]])
+        faihelper(self.roofTriggerCombo, Binds[parsed["roof_bind"]])
+        faihelper(self.roofAliasCombo, Binds[parsed["roof_alias"]])
+        faihelper(self.placeBuildAliasCombo, Binds[parsed["place_build_alias"]])
+        faihelper(self.resetTriggerCombo, Binds[parsed["reset_bind"]])
+
+        for bindname in parsed["can_cancel_edit"]:
+            inUseBinds.addItem(Binds[bindname])
+
 
     def on_save(self):
-        params = {"edit_mode": "disabled", "instant_build": False, "single_reset": False}
-        params["edit_alias_2"] = self.fields["edit_alias"].currentText()
-        if self.radioButton.isChecked():
-            params["edit_mode"] = "hold"
-        elif self.radioButton_2.isChecked():
-            params["edit_mode"] = "auto"
-            params["edit_alias_2"] = self.comboBox_6.currentText()
-        params["switch_pick"] = self.checkBox.isChecked()
-        params["toggle_pick"] = self.checkBox_2.isChecked()
-        params["toggle_pick_bind"] = self.comboBox_4.currentText()
-        params["pick_bind"] = self.comboBox_5.currentText()
-        params["edit_alias"] = self.comboBox_11.currentText()
-        params["edit_alias_3"] = self.comboBox_10.currentText()
-        params["edit_bind"] = self.comboBox_16.currentText()
-        params["instant_build"] = self.checkBox_3.isChecked()
-        params["wall_bind"] = self.comboBox_8.currentText()
-        params["wall_alias"] = self.comboBox.currentText()
-        params["floor_bind"] = self.comboBox_9.currentText()
-        params["floor_alias"] = self.comboBox_12.currentText()
-        params["stair_bind"] = self.comboBox_3.currentText()
-        params["stair_alias"] = self.comboBox_13.currentText()
-        params["roof_bind"] = self.comboBox_2.currentText()
-        params["roof_alias"] = self.comboBox_14.currentText()
-        params["place_build_alias"] = self.comboBox_15.currentText()
-        params["single_reset"] = self.checkBox_4.isChecked()
-        params["reset_bind"] = self.comboBox_7.currentText()
-        params["mouse_reset_bind"] = "RMB"
-        can_cancel_list = [x for x in self.fields["can_cancel"].toPlainText().split(", ")]
-        params["can_cancel"] = can_cancel_list
+        self.updateParams()
         with open(config_path, 'w+') as outfile:
-            json.dump(params, outfile)
+            json.dump(self.params, outfile)
+
+    def updateParams(self):
+        self.params["edit_mode"] = "disabled"
+        if self.holdRadio.isChecked():
+            self.params["edit_mode"] = "hold"
+        elif self.autoRadio.isChecked():
+            self.params["edit_mode"] = "auto"
+        self.params["switch_pick"] = self.switchPickCheck.isChecked()
+        self.params["toggle_pick"] = self.togglePickCheck.isChecked()
+        self.params["toggle_pick_bind"] = self.togglePickAliasCombo.currentData().name
+        self.params["pick_bind"] = self.pickAliasCombo.currentData().name
+        self.params["edit_alias"] = self.editAlias1Combo.currentData().name
+        self.params["edit_alias_2"] = self.editAlias2Combo.currentData().name
+        self.params["edit_alias_3"] = self.resetAliasCombo.currentData().name
+        self.params["edit_bind"] = self.editTriggerCombo.currentData().name
+        self.params["instant_build"] = self.instantBuildCheck.isChecked()
+        self.params["wall_bind"] = self.wallTriggerCombo.currentData().name
+        self.params["wall_alias"] = self.wallAliasCombo.currentData().name
+        self.params["floor_bind"] = self.floorTriggerCombo.currentData().name
+        self.params["floor_alias"] = self.floorAliasCombo.currentData().name
+        self.params["stair_bind"] = self.stairTriggerCombo.currentData().name
+        self.params["stair_alias"] = self.stairAliasCombo.currentData().name
+        self.params["roof_bind"] = self.roofTriggerCombo.currentData().name
+        self.params["roof_alias"] = self.roofAliasCombo.currentData().name
+        self.params["place_build_alias"] = self.placeBuildAliasCombo.currentData().name
+        self.params["single_reset"] = self.singleResetCheck.isChecked()
+        self.params["reset_bind"] = self.resetTriggerCombo.currentData().name
+        self.params["auto_select_edit"] = self.autoSelectCheck.isChecked()
+        self.params["mouse_reset_bind"] = "RMB"
+        self.params["can_cancel_edit"] = [name for name, member in inUseBinds]
+
 
     def on_click_start(self):
         if not self.running:
-            #self.on_save()
+            self.on_save() # NEEDS TO BE CHANGED
             self.tabWidget.setEnabled(False)
             # consider setting priority
             self.child = QtCore.QProcess()
@@ -143,37 +167,91 @@ class Ui_MainWindow(object):
             return
 
     def addKeyPopup(self, model):
+        newkey, status = QtWidgets.QInputDialog.getItem(self.mainTab, "Add Key/Button", "Valid Binds",  self.allBindsText, 0, False)
+        if status and newkey:
+            idx = model.addItem(Binds[newkey])
+            #model.insertRows(0, 1)
+            #idx = model.index(0, 0)
+            #model.setData(idx, newkey)
+        #self.editAlias1Combo.setModel(model)
+        #self.editAlias2Combo.setModel(model)
+        #self.availListView.setModel(model)
+        #self.availListView.addItem(Binds[newkey])
+        print(self.availKeysCol.model())
+        #self.availKeysCol.setRootIndex(idx)
+        #print(self.availKeysCol.currentData())
+        #print(self.availKeysCol.currentIndex())
+        #self.availKeysCol.setCurrentIndex(0)
+        #print(self.availKeysCol.currentIndex())
+        #print(self.availKeysCol.currentData())
+
+    def delKey(self, view):
+        m = view.model()
+        idx = view.currentIndex()
+        res = m.removeItem(idx)
+        return res
 
     # Just for disabling input fields depending on options
     def disableRadioClicked(self):
+        self.editAlias1Combo.setEnabled(False)
+        self.editAlias2Combo.setEnabled(False)
+        self.editTriggerCombo.setEnabled(False)
 
-    def editResetCheckClicked(self):
+    def holdRadioClicked(self):
+        self.editAlias1Combo.setEnabled(True)
+        self.editAlias2Combo.setEnabled(False)
+        self.editTriggerCombo.setEnabled(True)
+
+    def autoRadioClicked(self):
+        self.editAlias1Combo.setEnabled(True)
+        self.editAlias2Combo.setEnabled(True)
+        self.editTriggerCombo.setEnabled(True)
+
+    def singleResetCheckClicked(self):
+        status = self.singleResetCheck.isChecked()
+        self.resetTriggerCombo.setEnabled(status)
+        self.resetAliasCombo.setEnabled(status)
 
     def instantBuildCheckClicked(self):
+        status = self.instantBuildCheck.isChecked()
+        self.wallAliasCombo.setEnabled(status)
+        self.wallTriggerCombo.setEnabled(status)
+        self.floorAliasCombo.setEnabled(status)
+        self.floorTriggerCombo.setEnabled(status)
+        self.stairAliasCombo.setEnabled(status)
+        self.stairTriggerCombo.setEnabled(status)
+        self.roofAliasCombo.setEnabled(status)
+        self.roofTriggerCombo.setEnabled(status)
+        self.placeBuildAliasCombo.setEnabled(status)
 
     def setupData(self):
-        self.availBinds = BindModel(self.availKeysCol)
-        self.inUseBinds = BindModel(self.bindsInUseCol)
-
-        self.availKeysCol.setModel(availBinds)
-        self.bindsInUseCol.setModel(inUseBinds)
-        self.editAlias1Combo.setModel(availBinds)
-        self.editAlias2Combo.setModel(availBinds)
-        self.editTriggerCombo.setModel(availBinds)
-        self.pickAliasCombo.setModel(availBinds)
-        self.togglePickAliasCombo.setModel(availBinds)
-        self.placeBuildAliasCombo.setModel(availBinds)
-        self.resetTriggerCombo.setModel(availBinds)
-        self.resetAliasCombo.setModel(availBinds)
-        self.wallTriggerCombo.setModel(availBinds)
-        self.wallAliasCombo.setModel(availBinds)
-        self.floorTriggerCombo.setModel(availBinds)
-        self.floorAliasCombo.setModel(availBinds)
-        self.stairTriggerCombo.setModel(availBinds)
-        self.stairAliasCombo.setModel(availBinds)
-        self.roofTriggerCombo.setModel(availBinds)
-        self.roofAliasCombo.setModel(availBinds)
-        self.placeBuildAliasCombo.setModel(availBinds)
+        self.availBinds = BindModel()
+        self.inUseBinds = BindModel()
+        #self.availBinds = QtCore.QStringListModel(["a", "b"])
+        #self.availBinds.setStringList(["a", "b", "c"])
+        self.availKeysCol.setModel(self.availBinds)
+        #self.bindsInUseCol.setModel(self.inUseBinds)
+        #self.availListView = QtWidgets.QListView()
+        #self.availListView.setModel(self.availBinds)
+        #self.editAlias1Combo.setModel(self.availBinds)
+        #self.editAlias1Combo.setView(self.availListView)
+        
+        #self.editAlias2Combo.setModel(self.availBinds)
+        #self.editTriggerCombo.setModel(self.availBinds)
+        #self.pickAliasCombo.setModel(self.availBinds)
+        #self.togglePickAliasCombo.setModel(self.availBinds)
+        #self.placeBuildAliasCombo.setModel(self.availBinds)
+        #self.resetTriggerCombo.setModel(self.availBinds)
+        #self.resetAliasCombo.setModel(self.availBinds)
+        #self.wallTriggerCombo.setModel(self.availBinds)
+        #self.wallAliasCombo.setModel(self.availBinds)
+        #self.floorTriggerCombo.setModel(self.availBinds)
+        #self.floorAliasCombo.setModel(self.availBinds)
+        #self.stairTriggerCombo.setModel(self.availBinds)
+        #self.stairAliasCombo.setModel(self.availBinds)
+        #self.roofTriggerCombo.setModel(self.availBinds)
+        #self.roofAliasCombo.setModel(self.availBinds)
+        #self.placeBuildAliasCombo.setModel(self.availBinds)
 
     def setupUi(self, MainWindow):
         # From converted file
@@ -205,28 +283,28 @@ class Ui_MainWindow(object):
         self.deleteAvailableKeys = QtWidgets.QPushButton(self.mainTab)
         self.deleteAvailableKeys.setGeometry(QtCore.QRect(280, 290, 81, 21))
         self.deleteAvailableKeys.setObjectName("deleteAvailableKeys")
-        self.scrollArea = QtWidgets.QScrollArea(self.mainTab)
-        self.scrollArea.setGeometry(QtCore.QRect(10, 30, 171, 251))
-        self.scrollArea.setWidgetResizable(True)
-        self.scrollArea.setObjectName("scrollArea")
-        self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 169, 249))
-        self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
-        self.bindsInUseCol = QtWidgets.QColumnView(self.scrollAreaWidgetContents)
-        self.bindsInUseCol.setGeometry(QtCore.QRect(0, 0, 171, 501))
+        #self.scrollArea = QtWidgets.QScrollArea(self.mainTab)
+        #self.scrollArea.setGeometry(QtCore.QRect(10, 30, 171, 251))
+        #self.scrollArea.setWidgetResizable(True)
+        #self.scrollArea.setObjectName("scrollArea")
+        #self.scrollAreaWidgetContents = QtWidgets.QWidget()
+        #self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 169, 249))
+        #self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
+        self.bindsInUseCol = QtWidgets.QColumnView(self.mainTab)
+        self.bindsInUseCol.setGeometry(QtCore.QRect(10, 30, 171, 251))
         self.bindsInUseCol.setObjectName("bindsInUseCol")
-        self.scrollArea.setWidget(self.scrollAreaWidgetContents)
-        self.scrollArea_2 = QtWidgets.QScrollArea(self.mainTab)
-        self.scrollArea_2.setGeometry(QtCore.QRect(190, 30, 171, 251))
-        self.scrollArea_2.setWidgetResizable(True)
-        self.scrollArea_2.setObjectName("scrollArea_2")
-        self.scrollAreaWidgetContents_2 = QtWidgets.QWidget()
-        self.scrollAreaWidgetContents_2.setGeometry(QtCore.QRect(0, 0, 169, 249))
-        self.scrollAreaWidgetContents_2.setObjectName("scrollAreaWidgetContents_2")
-        self.availKeysCol = QtWidgets.QColumnView(self.scrollAreaWidgetContents_2)
-        self.availKeysCol.setGeometry(QtCore.QRect(0, 0, 171, 501))
+        #self.scrollArea.setWidget(self.scrollAreaWidgetContents)
+        #self.scrollArea_2 = QtWidgets.QScrollArea(self.mainTab)
+        #self.scrollArea_2.setGeometry(QtCore.QRect(190, 30, 171, 251))
+        #self.scrollArea_2.setWidgetResizable(True)
+        #self.scrollArea_2.setObjectName("scrollArea_2")
+        #self.scrollAreaWidgetContents_2 = QtWidgets.QWidget()
+        #self.scrollAreaWidgetContents_2.setGeometry(QtCore.QRect(0, 0, 169, 249))
+        #self.scrollAreaWidgetContents_2.setObjectName("scrollAreaWidgetContents_2")
+        self.availKeysCol = QtWidgets.QListView(self.mainTab)
+        self.availKeysCol.setGeometry(QtCore.QRect(190, 30, 171, 251))
         self.availKeysCol.setObjectName("availKeysCol")
-        self.scrollArea_2.setWidget(self.scrollAreaWidgetContents_2)
+        #self.scrollArea_2.setWidget(self.scrollAreaWidgetContents_2)
         self.label_17 = QtWidgets.QLabel(self.mainTab)
         self.label_17.setGeometry(QtCore.QRect(20, 10, 71, 21))
         font = QtGui.QFont()
@@ -322,7 +400,7 @@ class Ui_MainWindow(object):
         self.singleResetCheck.setObjectName("singleResetCheck")
         self.resetTriggerCombo = QtWidgets.QComboBox(self.groupBox_3)
         self.resetTriggerCombo.setGeometry(QtCore.QRect(10, 70, 91, 22))
-        self.resetTriggerCombo.setObjectName("resetTriggerCrombo")
+        self.resetTriggerCombo.setObjectName("resetTriggerCombo")
         self.resetAliasCombo = QtWidgets.QComboBox(self.groupBox_3)
         self.resetAliasCombo.setGeometry(QtCore.QRect(160, 70, 91, 22))
         self.resetAliasCombo.setObjectName("resetAliasCombo")
@@ -431,8 +509,17 @@ class Ui_MainWindow(object):
         self.startStopButton.clicked.connect(self.on_click_start)
         self.loadButton.clicked.connect(self.on_load)
         self.saveButton.clicked.connect(self.on_save)
-        self.addAvailableKeys.connect(lambda: self.addKeyPopup(self.availKeysCol.model()))
-        self.addBindInUse.connect(lambda: self.addKeyPopup(self.bindsInUseCol.model()))
+        self.switchPickCheck.clicked.connect(lambda: self.pickAliasCombo.setEnabled(self.switchPickCheck.isChecked()))
+        self.togglePickCheck.clicked.connect(lambda: self.togglePickAliasCombo.setEnabled(self.togglePickCheck.isChecked()))
+        self.holdRadio.clicked.connect(self.holdRadioClicked)
+        self.autoRadio.clicked.connect(self.autoRadioClicked)
+        self.disableRadio.clicked.connect(self.disableRadioClicked)
+        self.singleResetCheck.clicked.connect(self.singleResetCheckClicked)
+        self.instantBuildCheck.clicked.connect(self.instantBuildCheckClicked)
+        self.addAvailableKeys.clicked.connect(lambda: self.addKeyPopup(self.availKeysCol.model()))
+        self.addBindInUse.clicked.connect(lambda: self.addKeyPopup(self.bindsInUseCol.model()))
+        self.deleteAvailableKeys.clicked.connect(lambda: self.delKey(self.availKeysCol))
+        self.deleteItemInUse.clicked.connect(lambda: self.delKey(self.bindsInUseCol))
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 

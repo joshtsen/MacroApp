@@ -30,7 +30,7 @@ class Binds(enum.Enum):
 	x = ('x', False, True, "X")
 	y = ('y', False, True, "Y")
 	z = ('z', False, True, "Z")
-	ZERO = ('0', False, True, "Zero")
+	ZERO = ('0', False, True, "0")
 	ONE = ('1', False, True, "1")
 	TWO = ('2', False, True, "2")
 	THREE = ('3', False, True, "3")
