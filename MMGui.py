@@ -26,8 +26,13 @@ class BindModel(QtCore.QAbstractListModel):
         elif role == Qt.UserRole:
             return self.__data[index.row()]
         else:
-            QtCore.QVariant()
+            QtCore.QVariant() # This ended up being important, idk why tho...
             
+    def findData(self, item):
+        try:
+            return self.__data.index(item)
+        except ValueError:
+            return -1
 
     def getData(self):
         return self.__data
@@ -64,7 +69,14 @@ class Ui_MainWindow(object):
     
     def on_load(self):
         parsed = {}
-        with open(config_path, 'r') as infile:
+        fdiag = QtWidgets.QFileDialog()
+        fdiag.setFileMode(QtWidgets.QFileDialog.ExistingFile)
+        fdiag.setNameFilters(["JSON files *.json"])
+        fdiag.selectNameFilter("JSON files *.json")
+        fname = fdiag.getOpenFileName(self.loadButton, "Open config file", './', "JSON files *.json")
+        if type(fname) is not str:
+            return
+        with open(fname, 'r') as infile:
             parsed = json.load(infile)
         if parsed["edit_mode"] == "disabled":
             self.disableRadio.click()
@@ -82,7 +94,7 @@ class Ui_MainWindow(object):
         def faihelper(combobox, data):
             idx = combobox.findData(data)
             if idx < 0:
-                if not self.availBinds.addItem(data):
+                if not self.availBinds.addItem(data[3]):
                     return False
                 idx = 0
             combobox.setCurrentIndex(idx)
@@ -105,13 +117,22 @@ class Ui_MainWindow(object):
         faihelper(self.resetTriggerCombo, Binds[parsed["reset_bind"]])
 
         for bindname in parsed["can_cancel_edit"]:
-            inUseBinds.addItem(Binds[bindname])
+            idx = self.inUseBinds.findData(Binds[bindname])
+            if idx < 0:
+                self.inUseBinds.addItem(Binds[bindname])
+
+
 
 
     def on_save(self):
         self.updateParams()
-        with open(config_path, 'w+') as outfile:
-            json.dump(self.params, outfile)
+        fdiag = QtWidgets.QFileDialog()
+        fdiag.setNameFilters(["JSON files *.json"])
+        fdiag.selectNameFilter("JSON files *.json")
+        fname = fdiag.getSaveFileName(self.saveButton, "Save config file", './', "JSON files *.json")
+        if type(fname) is str:
+            with open(fname, 'w+') as outfile:
+                json.dump(self.params, outfile)
 
     def updateParams(self):
         self.params["edit_mode"] = "disabled"
@@ -141,7 +162,7 @@ class Ui_MainWindow(object):
         self.params["reset_bind"] = self.resetTriggerCombo.currentData().name
         self.params["auto_select_edit"] = self.autoSelectCheck.isChecked()
         self.params["mouse_reset_bind"] = "RMB"
-        self.params["can_cancel_edit"] = [name for name, member in inUseBinds]
+        self.params["can_cancel_edit"] = [b.name for b in self.inUseBinds.getData()]
 
 
     def on_click_start(self):
@@ -166,24 +187,11 @@ class Ui_MainWindow(object):
             self.tabWidget.setEnabled(True)
             return
 
-    def addKeyPopup(self, model):
+    def addKeyPopup(self, view):
         newkey, status = QtWidgets.QInputDialog.getItem(self.mainTab, "Add Key/Button", "Valid Binds",  self.allBindsText, 0, False)
         if status and newkey:
-            idx = model.addItem(Binds[newkey])
-            #model.insertRows(0, 1)
-            #idx = model.index(0, 0)
-            #model.setData(idx, newkey)
-        #self.editAlias1Combo.setModel(model)
-        #self.editAlias2Combo.setModel(model)
-        #self.availListView.setModel(model)
-        #self.availListView.addItem(Binds[newkey])
-        print(self.availKeysCol.model())
-        #self.availKeysCol.setRootIndex(idx)
-        #print(self.availKeysCol.currentData())
-        #print(self.availKeysCol.currentIndex())
-        #self.availKeysCol.setCurrentIndex(0)
-        #print(self.availKeysCol.currentIndex())
-        #print(self.availKeysCol.currentData())
+            idx = view.model().addItem(Binds[newkey])
+            view.setCurrentIndex(idx)
 
     def delKey(self, view):
         m = view.model()
@@ -227,31 +235,65 @@ class Ui_MainWindow(object):
     def setupData(self):
         self.availBinds = BindModel()
         self.inUseBinds = BindModel()
-        #self.availBinds = QtCore.QStringListModel(["a", "b"])
-        #self.availBinds.setStringList(["a", "b", "c"])
+
         self.availKeysCol.setModel(self.availBinds)
-        #self.bindsInUseCol.setModel(self.inUseBinds)
-        #self.availListView = QtWidgets.QListView()
-        #self.availListView.setModel(self.availBinds)
-        #self.editAlias1Combo.setModel(self.availBinds)
-        #self.editAlias1Combo.setView(self.availListView)
+        self.bindsInUseCol.setModel(self.inUseBinds)
+        self.editAlias1Combo.setModel(self.availBinds) 
+        self.editAlias2Combo.setModel(self.availBinds)
+        self.editTriggerCombo.setModel(self.availBinds)
+        self.pickAliasCombo.setModel(self.availBinds)
+        self.togglePickAliasCombo.setModel(self.availBinds)
+        self.placeBuildAliasCombo.setModel(self.availBinds)
+        self.resetTriggerCombo.setModel(self.availBinds)
+        self.resetAliasCombo.setModel(self.availBinds)
+        self.wallTriggerCombo.setModel(self.availBinds)
+        self.wallAliasCombo.setModel(self.availBinds)
+        self.floorTriggerCombo.setModel(self.availBinds)
+        self.floorAliasCombo.setModel(self.availBinds)
+        self.stairTriggerCombo.setModel(self.availBinds)
+        self.stairAliasCombo.setModel(self.availBinds)
+        self.roofTriggerCombo.setModel(self.availBinds)
+        self.roofAliasCombo.setModel(self.availBinds)
+        self.placeBuildAliasCombo.setModel(self.availBinds)
+
+    def defaultConfig(self):
+        inuse = ["LShift", "c", "F5", "MB4", "MB5", "ONE", "TWO", "THREE", "FOUR", "FIVE", "l"]
+        for s in inuse:
+            self.inUseBinds.addItem(Binds[s])
+
+        avail = ["t", "y", "g", "h", "LShift", "c", "MB4", "MB5", "e", "ZERO", "LMB", "F1", "F2", "F3", "F4"]
+        for s in avail:
+            self.availBinds.addItem(Binds[s])
+
+        self.autoRadio.click()
+        self.switchPickCheck.setChecked(True)
+        self.togglePickCheck.setChecked(False)
+        self.togglePickAliasCombo.setEnabled(False)
+
+        #findAndSetHelper
+        def fASHelper(combobox, data):
+            idx = combobox.findData(data)
+            combobox.setCurrentIndex(idx)
         
-        #self.editAlias2Combo.setModel(self.availBinds)
-        #self.editTriggerCombo.setModel(self.availBinds)
-        #self.pickAliasCombo.setModel(self.availBinds)
-        #self.togglePickAliasCombo.setModel(self.availBinds)
-        #self.placeBuildAliasCombo.setModel(self.availBinds)
-        #self.resetTriggerCombo.setModel(self.availBinds)
-        #self.resetAliasCombo.setModel(self.availBinds)
-        #self.wallTriggerCombo.setModel(self.availBinds)
-        #self.wallAliasCombo.setModel(self.availBinds)
-        #self.floorTriggerCombo.setModel(self.availBinds)
-        #self.floorAliasCombo.setModel(self.availBinds)
-        #self.stairTriggerCombo.setModel(self.availBinds)
-        #self.stairAliasCombo.setModel(self.availBinds)
-        #self.roofTriggerCombo.setModel(self.availBinds)
-        #self.roofAliasCombo.setModel(self.availBinds)
-        #self.placeBuildAliasCombo.setModel(self.availBinds)
+        fASHelper(self.editAlias1Combo, Binds.g)
+        fASHelper(self.editAlias2Combo, Binds.h)
+        fASHelper(self.editTriggerCombo, Binds.e)
+        fASHelper(self.pickAliasCombo, Binds.ZERO)
+        self.singleResetCheck.setChecked(True)
+        fASHelper(self.resetTriggerCombo, Binds.t)
+        fASHelper(self.resetAliasCombo, Binds.g)
+        self.instantBuildCheck.setChecked(True)
+        fASHelper(self.wallTriggerCombo, Binds.MB4)
+        fASHelper(self.wallAliasCombo, Binds.F1)
+        fASHelper(self.floorTriggerCombo, Binds.LShift)
+        fASHelper(self.floorAliasCombo, Binds.F2)
+        fASHelper(self.stairTriggerCombo, Binds.MB5)
+        fASHelper(self.stairAliasCombo, Binds.F3)
+        fASHelper(self.roofTriggerCombo, Binds.c)
+        fASHelper(self.roofAliasCombo, Binds.F4)
+        fASHelper(self.placeBuildAliasCombo, Binds.LMB)
+
+
 
     def setupUi(self, MainWindow):
         # From converted file
@@ -283,28 +325,12 @@ class Ui_MainWindow(object):
         self.deleteAvailableKeys = QtWidgets.QPushButton(self.mainTab)
         self.deleteAvailableKeys.setGeometry(QtCore.QRect(280, 290, 81, 21))
         self.deleteAvailableKeys.setObjectName("deleteAvailableKeys")
-        #self.scrollArea = QtWidgets.QScrollArea(self.mainTab)
-        #self.scrollArea.setGeometry(QtCore.QRect(10, 30, 171, 251))
-        #self.scrollArea.setWidgetResizable(True)
-        #self.scrollArea.setObjectName("scrollArea")
-        #self.scrollAreaWidgetContents = QtWidgets.QWidget()
-        #self.scrollAreaWidgetContents.setGeometry(QtCore.QRect(0, 0, 169, 249))
-        #self.scrollAreaWidgetContents.setObjectName("scrollAreaWidgetContents")
-        self.bindsInUseCol = QtWidgets.QColumnView(self.mainTab)
+        self.bindsInUseCol = QtWidgets.QListView(self.mainTab)
         self.bindsInUseCol.setGeometry(QtCore.QRect(10, 30, 171, 251))
         self.bindsInUseCol.setObjectName("bindsInUseCol")
-        #self.scrollArea.setWidget(self.scrollAreaWidgetContents)
-        #self.scrollArea_2 = QtWidgets.QScrollArea(self.mainTab)
-        #self.scrollArea_2.setGeometry(QtCore.QRect(190, 30, 171, 251))
-        #self.scrollArea_2.setWidgetResizable(True)
-        #self.scrollArea_2.setObjectName("scrollArea_2")
-        #self.scrollAreaWidgetContents_2 = QtWidgets.QWidget()
-        #self.scrollAreaWidgetContents_2.setGeometry(QtCore.QRect(0, 0, 169, 249))
-        #self.scrollAreaWidgetContents_2.setObjectName("scrollAreaWidgetContents_2")
         self.availKeysCol = QtWidgets.QListView(self.mainTab)
         self.availKeysCol.setGeometry(QtCore.QRect(190, 30, 171, 251))
         self.availKeysCol.setObjectName("availKeysCol")
-        #self.scrollArea_2.setWidget(self.scrollAreaWidgetContents_2)
         self.label_17 = QtWidgets.QLabel(self.mainTab)
         self.label_17.setGeometry(QtCore.QRect(20, 10, 71, 21))
         font = QtGui.QFont()
@@ -506,6 +532,7 @@ class Ui_MainWindow(object):
         # end
         
         self.setupData()
+        self.defaultConfig()
         self.startStopButton.clicked.connect(self.on_click_start)
         self.loadButton.clicked.connect(self.on_load)
         self.saveButton.clicked.connect(self.on_save)
@@ -516,8 +543,8 @@ class Ui_MainWindow(object):
         self.disableRadio.clicked.connect(self.disableRadioClicked)
         self.singleResetCheck.clicked.connect(self.singleResetCheckClicked)
         self.instantBuildCheck.clicked.connect(self.instantBuildCheckClicked)
-        self.addAvailableKeys.clicked.connect(lambda: self.addKeyPopup(self.availKeysCol.model()))
-        self.addBindInUse.clicked.connect(lambda: self.addKeyPopup(self.bindsInUseCol.model()))
+        self.addAvailableKeys.clicked.connect(lambda: self.addKeyPopup(self.availKeysCol))
+        self.addBindInUse.clicked.connect(lambda: self.addKeyPopup(self.bindsInUseCol))
         self.deleteAvailableKeys.clicked.connect(lambda: self.delKey(self.availKeysCol))
         self.deleteItemInUse.clicked.connect(lambda: self.delKey(self.bindsInUseCol))
         self.retranslateUi(MainWindow)
@@ -538,7 +565,7 @@ class Ui_MainWindow(object):
 "<html><head><meta name=\"qrichtext\" content=\"1\" /><style type=\"text/css\">\n"
 "p, li { white-space: pre-wrap; }\n"
 "</style></head><body style=\" font-family:\'MS Shell Dlg 2\'; font-size:1pt; font-weight:400; font-style:normal;\">\n"
-"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:9pt;\">Note: Binds in use should include item slot, pickaxe and build binds (any binds that will cancel editing). It should not include binds such as movement. <br />Available binds SHOULD include keys/buttons which can be used as binds within Fortnite and should NOT include the keys you want to trigger the macro</span></p></body></html>"))
+"<p style=\" margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;\"><span style=\" font-size:9pt;\">Note: Binds in use should include item slot binds, pickaxe bind and build binds (if you are using \"Instant Build\" include the triggers instead of binds). <br />Available binds should include keys/buttons which are otherwise unused within Fortnite and any keys you want to trigger the macro</span></p></body></html>"))
         self.tabWidget.setTabText(self.tabWidget.indexOf(self.mainTab), _translate("MainWindow", "Main"))
         self.groupBox.setTitle(_translate("MainWindow", "Edit Modes"))
         self.label.setText(_translate("MainWindow", "Edit Alias 1:"))
