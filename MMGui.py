@@ -78,6 +78,7 @@ class Ui_MainWindow(object):
             return
         with open(fname, 'r') as infile:
             parsed = json.load(infile)
+        self.startStopButton.setEnabled(False)
         if parsed["edit_mode"] == "disabled":
             self.disableRadio.click()
         elif parsed["edit_mode"] == "hold":
@@ -120,6 +121,7 @@ class Ui_MainWindow(object):
             idx = self.inUseBinds.findData(Binds[bindname])
             if idx < 0:
                 self.inUseBinds.addItem(Binds[bindname])
+        self.startStopButton.setEnabled(True)
 
 
 
@@ -167,25 +169,36 @@ class Ui_MainWindow(object):
 
     def on_click_start(self):
         if not self.running:
-            self.on_save() # NEEDS TO BE CHANGED
+            self.startStopButton.setEnabled(False)
+            self.updateParams()
+            #self.on_save() # NEEDS TO BE CHANGED
             self.tabWidget.setEnabled(False)
             # consider setting priority
             self.child = QtCore.QProcess()
-            cmd_string = "./hkmain.exe config.json"
+            cmd_string = "./hkmain.exe"
             self.child.start(cmd_string)
             self.child.waitForStarted()
             self.running = True
-            self.pushButton.setText("Stop")
+            self.child.write(bytearray(json.dumps(self.params), 'ascii'))
+            self.startStopButton.setText("Stop")
+            self.startStopButton.setEnabled(True)
         else:
+            self.startStopButton.setEnabled(False)
             print("Attempting to kill")
             self.child.write(bytearray("q", "ascii"))
             print("Waiting")
             if not self.child.waitForFinished(5000):
                 self.child.kill()
             self.running = False
-            self.pushButton.setText("Start")
+            self.startStopButton.setText("Start")
             self.tabWidget.setEnabled(True)
+            self.startStopButton.setEnabled(True)
             return
+
+    def closeEvent(self, event):
+        if self.running:
+            self.on_click_start()
+        event.accept()
 
     def addKeyPopup(self, view):
         newkey, status = QtWidgets.QInputDialog.getItem(self.mainTab, "Add Key/Button", "Valid Binds",  self.allBindsText, 0, False)
@@ -525,6 +538,7 @@ class Ui_MainWindow(object):
         self.startStopButton = QtWidgets.QPushButton(self.centralwidget)
         self.startStopButton.setGeometry(QtCore.QRect(280, 480, 101, 61))
         self.startStopButton.setObjectName("startStopButton")
+        self.startStopButton.setEnabled(False)
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(MainWindow)
         self.statusbar.setObjectName("statusbar")
@@ -548,7 +562,10 @@ class Ui_MainWindow(object):
         self.deleteAvailableKeys.clicked.connect(lambda: self.delKey(self.availKeysCol))
         self.deleteItemInUse.clicked.connect(lambda: self.delKey(self.bindsInUseCol))
         self.retranslateUi(MainWindow)
+
+
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        self.startStopButton.setEnabled(True)
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate

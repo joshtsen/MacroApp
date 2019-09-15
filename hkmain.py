@@ -187,10 +187,12 @@ if __name__ == "__main__":
 	import json, sys
 	if len(sys.argv) > 1:
 		cfg_path = sys.argv[1]
+		with open(cfg_path, 'r') as cfg:
+			config = json.load(cfg)
 	else:
-		cfg_path = "./config.json"
-	with open(cfg_path, 'r') as cfg:
-		config = json.load(cfg)
+		config_str = sys.stdin.readline()
+		config = json.loads(config_str)
+	
 	hk = HKThread()
 	hk.run(config)
 	ret = sys.stdin.read(1)

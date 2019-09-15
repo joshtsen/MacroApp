@@ -1,2 +1,3 @@
-pyinstaller --clean --add-data="C:\Users\Joshua\AppData\Local\Programs\Python\Python37-32\Lib\site-packages\PyQt5\Qt\bin\Qt5Core.dll;PyQt5\Qt\bin" --onefile --res/icon=elephant_huM_icon.ico --window MMGui.py
+pyinstaller --clean --add-data="C:\Users\Joshua\AppData\Local\Programs\Python\Python37-32\Lib\site-packages\PyQt5\Qt\bin\Qt5Core.dll;PyQt5\Qt\bin" --onefile --icon=res/elephant_huM_icon.ico --window MMGui.py
 pyinstaller --clean --onefile --icon=res/elephant_huM_icon.ico hkmain.py
+7z a -tzip MMv0-4.zip ./dist/MMGui.exe ./dist/hkmain.exe
