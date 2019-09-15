@@ -111,7 +111,7 @@ class HKThread():
 	def on_click(self, x, y, button, pressed):
 		if self.edit_open: # does nothing if edit mode = disabled
 			if pressed and button in self.can_cancel:
-				print("Cancelled")
+				#print("Cancelled")
 				self.edit_open = False
 		if button in self.handlers:
 			self.handlers[button](pressed)
@@ -136,7 +136,7 @@ class HKThread():
 					translated[k] = (kc, self.mouseController)
 		self.params = Enum("Params", translated)
 
-		for s in input_params["can_cancel"]:
+		for s in input_params["can_cancel_edit"]:
 			if s in bind_names:
 				key_info = Binds[s].value
 				if not key_info[1]:
@@ -171,8 +171,24 @@ class HKThread():
 			self.tap_bind(self.params.pick_bind.value)
 			self.tap_bind(self.params.edit_alias.value)
 
-		if input_params["switch_pick"]:
-			self.open_edit = switch_pick_open#lambda: (self.tap_bind(self.params.pick_bind.value), self.tap_bind(self.params.edit_alias.value))
+		def open_edit_start():
+			self.tap_bind(self.params.edit_alias.value)
+			self.press_bind(self.params.select_edit_alias.value)
+
+		def open_edit_switch_pick_start():
+			self.tap_bind(self.params.pick_bind.value)
+			self.tap_bind(self.params.edit_alias.value)
+			self.press_bind(self.params.select_edit_alias.value)
+
+		if input_params["auto_select_edit"]:
+			if input_params["switch_pick"]:
+				#print("using switch_pick_auto")
+				self.open_edit = open_edit_switch_pick_start
+			else:
+				self.open_edit = open_edit_start
+		elif input_params["switch_pick"]:
+			self.open_edit = switch_pick_open
+
 		self.keylistener = keyboard.Listener(on_press = self.on_press, on_release = self.on_release)
 		self.keylistener.start()
 		if input_params["edit_mode"] == "auto":

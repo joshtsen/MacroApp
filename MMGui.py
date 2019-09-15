@@ -164,6 +164,7 @@ class Ui_MainWindow(object):
         self.params["reset_bind"] = self.resetTriggerCombo.currentData().name
         self.params["auto_select_edit"] = self.autoSelectCheck.isChecked()
         self.params["mouse_reset_bind"] = "RMB"
+        self.params["select_edit_alias"] = "LMB"
         self.params["can_cancel_edit"] = [b.name for b in self.inUseBinds.getData()]
 
 
@@ -175,11 +176,13 @@ class Ui_MainWindow(object):
             self.tabWidget.setEnabled(False)
             # consider setting priority
             self.child = QtCore.QProcess()
+            #self.child.setStandardErrorFile("hkmain.error")
+            #self.child.setStandardOutputFile("hkmain.out")
             cmd_string = "./hkmain.exe"
             self.child.start(cmd_string)
             self.child.waitForStarted()
             self.running = True
-            self.child.write(bytearray(json.dumps(self.params), 'ascii'))
+            self.child.write(bytearray(json.dumps(self.params)+"\n", 'ascii'))
             self.startStopButton.setText("Stop")
             self.startStopButton.setEnabled(True)
         else:
@@ -274,7 +277,7 @@ class Ui_MainWindow(object):
         for s in inuse:
             self.inUseBinds.addItem(Binds[s])
 
-        avail = ["t", "y", "g", "h", "LShift", "c", "MB4", "MB5", "e", "ZERO", "LMB", "F1", "F2", "F3", "F4"]
+        avail = ["t", "y", "g", "h", "LShift", "c", "MB4", "MB5", "e", "ZERO", "LMB", "F1", "F2", "F3", "F4", "j", "l"]
         for s in avail:
             self.availBinds.addItem(Binds[s])
 
@@ -282,6 +285,7 @@ class Ui_MainWindow(object):
         self.switchPickCheck.setChecked(True)
         self.togglePickCheck.setChecked(False)
         self.togglePickAliasCombo.setEnabled(False)
+        self.autoSelectCheck.setChecked(False)
 
         #findAndSetHelper
         def fASHelper(combobox, data):
@@ -290,8 +294,9 @@ class Ui_MainWindow(object):
         
         fASHelper(self.editAlias1Combo, Binds.g)
         fASHelper(self.editAlias2Combo, Binds.h)
-        fASHelper(self.editTriggerCombo, Binds.e)
+        fASHelper(self.editTriggerCombo, Binds.y)
         fASHelper(self.pickAliasCombo, Binds.ZERO)
+        fASHelper(self.togglePickAliasCombo, Binds.l)
         self.singleResetCheck.setChecked(True)
         fASHelper(self.resetTriggerCombo, Binds.t)
         fASHelper(self.resetAliasCombo, Binds.g)
@@ -304,7 +309,7 @@ class Ui_MainWindow(object):
         fASHelper(self.stairAliasCombo, Binds.F3)
         fASHelper(self.roofTriggerCombo, Binds.c)
         fASHelper(self.roofAliasCombo, Binds.F4)
-        fASHelper(self.placeBuildAliasCombo, Binds.LMB)
+        fASHelper(self.placeBuildAliasCombo, Binds.j)
 
 
 
