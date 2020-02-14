@@ -66,13 +66,14 @@ class HKThread():
 
 	def auto_edit_key(self, pressed):
 		if pressed:
-			if not self.edit_open:
-				self.open_edit()
+			if self.edit_open:
+				self.edit_open = False
+				#	self.close_edit()
+			else:
+			#	self.open_edit()
 				self.edit_open = True
 				self.edit_selected = False
-			else:
-				self.edit_open = False
-				self.close_edit()
+			
 
 	def on_press(self, key):
 		if self.edit_open:
@@ -159,9 +160,9 @@ class HKThread():
 		elif input_params["edit_mode"] == "auto":
 			self.handlers[self.params.edit_bind.value[0]] = lambda p: self.auto_edit_key(p)
 
-		self.close_edit = lambda: self.tap_bind(self.params.edit_alias_2.value)
+		self.close_edit = lambda: self.tap_bind(self.params.edit_alias.value)
 		def toggle_close():
-			self.tap_bind(self.params.edit_alias_2.value)
+			self.tap_bind(self.params.edit_alias.value)
 			self.tap_bind(self.params.toggle_pick_bind.value)
 		if input_params["toggle_pick"]:
 			self.close_edit = toggle_close
