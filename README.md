@@ -1,4 +1,4 @@
-# MontysMacros
+# MacroApp
 
 The "Confirm Edit On Release" option (identical to my "auto-edit") was added to the game with v11.00 in October. I would like to think my posts in the various feedback threads contributed to this but it was probably already in their pipeline. As such I am no longer working on this project.
 
